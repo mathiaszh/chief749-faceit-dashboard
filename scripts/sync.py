@@ -77,16 +77,18 @@ def main():
     complete = {row["matchId"] for row in previous.values()}
     now = int(time.time())
     # Import the latest 100 on first use; subsequent runs catch up since last sync.
-    lower = max(0, int(old.get("lastSyncEpoch", 0)) - 86400)
+    has_history = bool(previous)
+    lower = max(0, int(old.get("lastSyncEpoch", 0)) - 86400) if has_history else 0
     pending = dict(old.get("pending", {}))
     for offset in range(0, 1001, 100):
         history = fetch(f"players/{player_id}/history", key, game="cs2", limit=100,
                         offset=offset, **{"from": lower, "to": now})
         items = history.get("items", [])
         for match in items:
-            if match.get("status") == "FINISHED" and match["match_id"] not in complete:
+            if match.get("finished_at") and match["match_id"] not in complete:
                 pending[match["match_id"]] = match
-        if not old.get("lastSyncEpoch") or len(items) < 100:
+        print(f"History page: {len(items)} matches, {len(pending)} awaiting statistics.")
+        if not has_history or len(items) < 100:
             break
         if offset == 1000:
             raise RuntimeError("Catch-up exceeds 1,100 matches. Date-window backfill is required.")
