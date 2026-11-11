@@ -1,5 +1,8 @@
 name: Update FACEIT data
 on:
+  push:
+    paths:
+      - 'scripts/sync.py'
   workflow_dispatch:
   schedule:
     - cron: '7,22,37,52 * * * *'
