@@ -110,7 +110,9 @@ def main():
     timestamp = datetime.now(timezone.utc).isoformat()
     if elo is not None and (not snapshots or snapshots[-1]["elo"] != elo):
         snapshots.append({"at": timestamp, "elo": elo})
+    batch_stats = fetch(f"players/{player_id}/games/cs2/stats", key, limit=1)
     data = {
+        "batchStatsSample": batch_stats,
         "nickname": profile["nickname"], "elo": elo, "level": game.get("skill_level"),
         "updatedAt": timestamp, "lastSyncEpoch": now,
         "matches": sorted(previous.values(), key=lambda row: row.get("finishedAt") or 0, reverse=True),
