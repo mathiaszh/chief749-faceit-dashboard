@@ -28,7 +28,7 @@ export function summarize(rows) {
   const multiFields = ['Double Kills','Triple Kills','Quadro Kills','Penta Kills'];
   const multi = rows.filter(row=>row.rounds>0 && multiFields.every(field=>Number.isFinite(stat(row,field))));
   return {
-    count:rows.length,wins,losses:decided.length-wins,decided:decided.length,
+    count:rows.length,combatCount:combat.length,wins,losses:decided.length-wins,decided:decided.length,
     winrate:decided.length?wins/decided.length:null,
     kills:combat.length?kills:null,deaths:combat.length?deaths:null,
     assists:total(rows,'Assists').value, kd:deaths?kills/deaths:null,
