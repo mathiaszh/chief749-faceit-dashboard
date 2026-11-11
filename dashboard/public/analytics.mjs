@@ -101,3 +101,47 @@ export function mergeDetails(row, payload, playerId) {
   }
   return row;
 }
+
+export const killsPerRound = row => Number.isFinite(row.kills) && row.rounds > 0 ? row.kills / row.rounds : null;
+
+// Select trigger games first, then find the immediate successor in full history.
+// Series with several map rows are excluded; never skip across them to make a pair.
+export function reboundPairs(selectedPrevious, allRows, {rule='kprBelow',threshold=.6,result='all',sameSession=false}={}) {
+  const selected=new Set(selectedPrevious.map(row=>row.id));
+  const grouped=new Map();
+  for(const row of allRows){
+    const group=grouped.get(row.matchId)||[];
+    group.push(row);grouped.set(row.matchId,group);
+  }
+  const games=[...grouped.values()].sort((a,b)=>(a[0].finishedAt||0)-(b[0].finishedAt||0));
+  const pairs=[];
+  for(let i=0;i<games.length-1;i++){
+    if(games[i].length!==1||games[i+1].length!==1)continue;
+    const previous=games[i][0],next=games[i+1][0];
+    if(!selected.has(previous.id)||!previous.finishedAt||!next.finishedAt)continue;
+    const gap=next.finishedAt-previous.finishedAt;
+    if(gap<=0||(sameSession&&gap>5400))continue;
+    if(result!=='all'&&previous.won!==(result==='win'))continue;
+    const kpr=killsPerRound(previous);
+    if(rule==='kprBelow'&&(!Number.isFinite(kpr)||!(kpr<threshold)))continue;
+    if(rule==='killsAtMost'&&(!Number.isFinite(previous.kills)||!(previous.kills<=threshold)))continue;
+    if(rule==='killsExactly'&&(!Number.isFinite(previous.kills)||previous.kills!==threshold))continue;
+    pairs.push({previous,next});
+  }
+  return pairs.sort((a,b)=>b.previous.finishedAt-a.previous.finishedAt);
+}
+export function reboundSummary(pairs){
+  function metric(getValue){
+    const values=pairs.map(({previous,next})=>[getValue(previous),getValue(next)])
+      .filter(([a,b])=>Number.isFinite(a)&&Number.isFinite(b));
+    const changes=values.map(([a,b])=>b-a);
+    const increased=changes.filter(d=>d>1e-9).length;
+    const decreased=changes.filter(d=>d< -1e-9).length;
+    return {count:values.length,previous:average(values.map(v=>v[0])),next:average(values.map(v=>v[1])),
+      delta:average(changes),increased,decreased,equal:values.length-increased-decreased,
+      improvementRate:values.length?increased/values.length:null};
+  }
+  const decided=pairs.filter(p=>typeof p.next.won==='boolean');
+  return {count:pairs.length,kills:metric(r=>r.kills),deaths:metric(r=>r.deaths),kpr:metric(killsPerRound),adr:metric(r=>r.adr),
+    winrate:decided.length?decided.filter(p=>p.next.won).length/decided.length:null,decided:decided.length};
+}
