@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="da">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chief749 · FACEIT dashboard</title>
+  <meta name="description" content="Chief749s CS2-kampe, form og vej til level 10.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <header><a class="brand" href="https://www.faceit.com/en/players/Chief749" target="_blank" rel="noopener">CHIEF<span>749</span><small>CS2 · FACEIT</small></a><button id="refresh">Opdater visning ↻</button></header>
+  <section class="intro"><div><p class="eyebrow">DIT SPIL. DIN UDVIKLING.</p><h1>Vejen til <em>level 10.</em></h1><p id="status" role="status">Henter dine kampdata…</p></div><div class="level"><span id="level">—</span><small>FACEIT LEVEL</small></div></section>
+  <section id="setup" hidden class="notice"><h2>Forbind din FACEIT-konto</h2><p>Tilføj din nøgle som <strong>FACEIT_API_KEY</strong> i GitHubs Actions secrets. Start derefter <strong>Update FACEIT data → Run workflow</strong>. Tallene vises her efter den første gennemførte hentning.</p><div class="links"><a href="https://github.com/mathiaszh/chief749-faceit-dashboard/settings/secrets/actions" target="_blank" rel="noopener">Åbn hemmelige variabler ↗</a><a href="https://github.com/mathiaszh/chief749-faceit-dashboard/actions/workflows/sync.yml" target="_blank" rel="noopener">Åbn datahentning ↗</a></div></section>
+  <div class="filters"><label>Periode <select id="period"><option value="30">Seneste 30 maps</option><option value="10">Seneste 10 maps</option><option value="100">Seneste 100 maps</option><option value="all">Alle indlæste maps</option></select></label><label>Map <select id="map"><option value="all">Alle maps</option></select></label></div>
+  <section class="metrics" aria-label="Nøgletal"><article><p>Aktuel Elo</p><strong id="elo">—</strong><small id="distance">Mål · 2.001 Elo</small></article><article><p>Winrate</p><strong id="winrate">—</strong><small id="record">Afventer kampe</small></article><article><p>K/D</p><strong id="kd">—</strong><small>Samlede kills / deaths</small></article><article><p>ADR</p><strong id="adr">—</strong><small id="coverage">Vægtet efter antal runder</small></article></section>
+  <section class="columns"><article class="panel"><div class="panel-head"><h2>Elo over tid</h2><span>Alle målinger</span></div><canvas id="chart" height="230" role="img" aria-label="Elo-udvikling fra første synkronisering"></canvas><p class="muted" id="chartNote">Grafen starter ved første synkronisering.</p></article><article class="panel forecast"><p class="eyebrow">PROGNOSE · SENESTE 30 DAGE</p><h2 id="forecastTitle">Næste stop, level 10</h2><p id="forecastText">Prognosen vises, når der er mindst 10 enkeltmap-kampe i de seneste 30 dage.</p><div class="progress"><div id="progress"></div></div><p class="muted">Scenarie med ±25 Elo pr. kamp og uændret winrate. Faktiske Elo-ændringer varierer. Datoen er et estimat.</p></article></section>
+  <section class="panel"><div class="panel-head"><h2>Dit map-pool</h2><span id="mapHint">Valgt periode</span></div><div id="maps" class="map-grid"></div></section>
+  <section class="panel"><div class="panel-head"><h2>Kamp for kamp</h2><span id="matchCount"></span></div><div class="table-wrap"><table><thead><tr><th>Dato</th><th>Map</th><th>Resultat</th><th>Score</th><th>K / D / A</th><th>ADR</th><th>HS %</th><th>Kamp</th></tr></thead><tbody id="matches"></tbody></table></div></section>
+  <footer><p>Officielle FACEIT-data · Automatisk hentning planlagt hvert 15. minut. GitHub kan forsinke kørsler.</p><a href="https://github.com/mathiaszh/chief749-faceit-dashboard" target="_blank" rel="noopener">Projekt og opsætning ↗</a></footer>
+</main><script type="module" src="app.mjs"></script>
+</body></html>
