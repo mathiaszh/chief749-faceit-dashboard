@@ -125,6 +125,7 @@ export function reboundPairs(selectedPrevious, allRows, {rule='kprBelow',thresho
     const kpr=killsPerRound(previous);
     if(rule==='kprBelow'&&(!Number.isFinite(kpr)||!(kpr<threshold)))continue;
     if(rule==='killsAtMost'&&(!Number.isFinite(previous.kills)||!(previous.kills<=threshold)))continue;
+    if(rule==='killsAtLeast'&&(!Number.isFinite(previous.kills)||!(previous.kills>=threshold)))continue;
     if(rule==='killsExactly'&&(!Number.isFinite(previous.kills)||previous.kills!==threshold))continue;
     pairs.push({previous,next});
   }

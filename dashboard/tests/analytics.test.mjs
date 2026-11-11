@@ -36,3 +36,11 @@ test('rebound comparison excludes missing values and treats equal KPR as unchang
  assert.equal(s.kpr.count,1);assert.equal(s.kpr.equal,1);assert.equal(s.kpr.increased,0);assert.equal(s.kills.count,1);assert.equal(s.adr.count,1);assert.equal(s.adr.delta,30);
  assert.equal(reboundSummary([]).kpr.improvementRate,null);
 });
+
+test('minimum kills includes boundary, excludes missing and lower values, and respects result',async()=>{
+ const {reboundPairs}=await import('../public/analytics.mjs');
+ const all=[row('below',100,19,10,20,80,true),row('equal',200,20,10,20,80,true),row('above',300,25,10,20,80,false),row('missing',400,null,10,20,80,true),row('last',500,30,10,20,80,true)];
+ assert.deepEqual(reboundPairs(all,all,{rule:'killsAtLeast',threshold:20}).map(p=>p.previous.id),['above','equal']);
+ assert.deepEqual(reboundPairs(all,all,{rule:'killsAtLeast',threshold:20,result:'win'}).map(p=>p.previous.id),['equal']);
+ assert.equal(reboundPairs(all,all,{rule:'killsAtLeast',threshold:26}).length,0);
+});
