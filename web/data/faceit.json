@@ -1,1 +1,15 @@
-{"nickname":"Chief749","elo":null,"level":null,"updatedAt":null,"matches":[],"eloSnapshots":[]}
+{
+  "nickname": "Chief749",
+  "elo": 1911.0,
+  "level": 9,
+  "updatedAt": "2026-11-11T08:33:46.859539+00:00",
+  "lastSyncEpoch": 1794386026,
+  "matches": [],
+  "eloSnapshots": [
+    {
+      "at": "2026-11-11T08:33:46.859539+00:00",
+      "elo": 1911.0
+    }
+  ],
+  "pending": {}
+}
