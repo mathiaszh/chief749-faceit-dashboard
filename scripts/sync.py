@@ -60,6 +60,8 @@ def normalize(match, payload, player_id):
                     "assists": number(stats.get("Assists")), "adr": number(stats.get("ADR")),
                     "headshots": number(stats.get("Headshots %")),
                     "rounds": number(round_stats.get("Rounds")),
+                    # Preserve the official fields so availability can be audited.
+                    "sourcePlayerStats": stats, "sourceRoundStats": round_stats,
                 })
     return rows
 
