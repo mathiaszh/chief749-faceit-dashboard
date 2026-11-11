@@ -1,9 +1,55 @@
 {
+  "batchStatsSample": {
+    "items": [
+      {
+        "stats": {
+          "Final Score": "7",
+          "K/D Ratio": "0.43",
+          "Second Half Score": "3",
+          "Overtime score": "0",
+          "Competition Id": "f4148ddd-bce8-41b8-9131-ee83afcdd6dd",
+          "Game": "cs2",
+          "Updated At": "2026-11-10T20:25:04.699Z",
+          "ADR": "50.2",
+          "K/R Ratio": "0.3",
+          "Match Round": "1",
+          "Double Kills": "2",
+          "Match Finished At": 1794342213000,
+          "Game Mode": "5v5",
+          "Region": "EU",
+          "Triple Kills": "0",
+          "Score": "7 / 13",
+          "Headshots %": "67",
+          "Map": "de_dust2",
+          "Damage": "1004",
+          "Rounds": "20",
+          "Nickname": "Chief749",
+          "Deaths": "14",
+          "Match Id": "1-c01c6132-7b2e-4d98-a323-348b1e7e9828",
+          "Assists": "2",
+          "Created At": "2026-11-10T20:23:34.211Z",
+          "Best Of": "1",
+          "Penta Kills": "0",
+          "Player Id": "0f3cd1dc-72ba-4cab-92c7-faa79ad5a80f",
+          "Winner": "40621b4d-d637-4b24-a1f7-9283fec750a0",
+          "Headshots": "4",
+          "MVPs": "0",
+          "Kills": "6",
+          "Result": "0",
+          "Team": "team_Badooosh",
+          "Quadro Kills": "0",
+          "First Half Score": "4"
+        }
+      }
+    ],
+    "start": 0,
+    "end": 1
+  },
   "nickname": "Chief749",
   "elo": 1911.0,
   "level": 9,
-  "updatedAt": "2026-11-11T08:35:49.937786+00:00",
-  "lastSyncEpoch": 1794386120,
+  "updatedAt": "2026-11-11T08:42:30.811190+00:00",
+  "lastSyncEpoch": 1794386550,
   "matches": [
     {
       "id": "1-c01c6132-7b2e-4d98-a323-348b1e7e9828:0",
