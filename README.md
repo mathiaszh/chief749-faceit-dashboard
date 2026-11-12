@@ -27,3 +27,25 @@ Workflowet er planlagt hvert 15. minut. GitHub kan forsinke kørsler og deaktive
 - `node --test dashboard/tests/*.test.mjs`: aggregation, manglende felter, sessioner, API-normalisering, brugeropslag og fejl.
 - `python -m unittest discover -s tests`: arkivimport.
 - I `dashboard/`: `npm run install:ci`, `npx tsc --noEmit`, `npm run build`.
+
+### Experimental ratings (v1)
+
+The match history includes HaldLab rating (0–2) and a personal percentile (0–100).
+`dashboard/public/ratings.mjs` defines both formulas; missing required inputs produce no rating.
+The fixed reference in `dashboard/public/data/rating-reference-v1.json` contains population
+means and standard deviations from 1,000 complete player-map observations, 699 distinct
+players, across Chief749's 100 loaded matches. This convenience sample is not representative
+of all FACEIT players. Model weights are proposed, not fitted or validated as win impact.
+Historical scores use this retrospective fixed reference, not a prediction-time baseline.
+Reference metadata includes source match IDs and creation time. No ELO adjustment is applied.
+
+The personal percentile requires 20 prior complete maps, uses the same map when possible,
+and otherwise uses all maps. Current match, equal timestamps, future matches and duplicates
+are excluded. Filters do not change the underlying loaded history. Up to 100 maps are loaded,
+so the oldest matches lack enough earlier history. Ties count half. All models are descriptive;
+these are not FACEIT Rating or Swing. A personal percentile cannot rank different players.
+
+To reproduce a new reference version manually, save a `/api/player` response and run
+`python dashboard/scripts/calibrate-rating.py player.json new-reference.json`.
+Do not silently overwrite the published v1 baseline; publish and label a new version.
+Run tests with `node --test dashboard/tests/*.test.mjs`.
