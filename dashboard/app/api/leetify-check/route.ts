@@ -8,7 +8,10 @@ const headers={'Cache-Control':'private, no-store, max-age=0'};
 let active=0,windowStart=0,requests=0;
 export async function GET(request:Request){
  const now=Date.now();if(now-windowStart>60000){windowStart=now;requests=0;}
- if(active>=2||requests>=20)return Response.json({error:'Vent et øjeblik før næste test.'},{status:429,headers});
+ if(active>=2||requests>=20){
+  const retryAfter=requests>=20?Math.max(1,Math.ceil((windowStart+60000-now)/1000)):5;
+  return Response.json({error:'Forespørgselsgrænsen er nået. Prøv igen senere.',retryAfter},{status:429,headers:{...headers,'Retry-After':String(retryAfter)}});
+ }
  requests++;active++;
  try{
   const query=new URL(request.url).searchParams;
