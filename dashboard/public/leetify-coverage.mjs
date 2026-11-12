@@ -28,14 +28,14 @@ export function createCoverage(){
  async function run(retry=false){
   if(busy||!nickname)return;
   const selected=[...new Set(rows.filter(r=>{const state=results.get(r.matchId)?.state;return retry?state&&['error','missing','access','limited'].includes(state):!state;}).map(r=>r.matchId))].slice(0,10);
-  if(!selected.length)return;busy=true;const token=version,name=nickname,signal=abort.signal,queue=[...selected];
+  if(!selected.length)return;busy=true;const token=version,name=nickname,signal=abort.signal,queue=[...selected],previous=new Map(selected.map(id=>[id,results.get(id)]));
   selected.forEach(id=>results.set(id,{state:'pending'}));render();
   async function worker(){while(queue.length&&token===version){const id=queue.shift();try{
    const response=await fetch('/api/leetify-check?nickname='+encodeURIComponent(name)+'&matchId='+encodeURIComponent(id),{signal,cache:'no-store'});
    const data=await response.json();if(token!==version)return;
    const state=response.ok?classifyLeetify(data):response.status===429?'limited':response.status===503?'access':'error';
    results.set(id,{state,fields:Array.isArray(data.availableFields)?data.availableFields:[]});
-   if(['limited','access'].includes(state)){queue.splice(0).forEach(pending=>results.delete(pending));}
+   if(['limited','access'].includes(state)){queue.splice(0).forEach(pending=>{const before=previous.get(pending);if(before)results.set(pending,before);else results.delete(pending);});}
   }catch(error){if(token!==version||error.name==='AbortError')return;results.set(id,{state:'error'});}render();}}
   await Promise.all([worker(),worker()]);if(token===version){busy=false;render();}
  }
