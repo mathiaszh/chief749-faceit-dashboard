@@ -1,5 +1,5 @@
 import {killsPerRound,stat} from './analytics.mjs';
-export const historyColumns={date:'Dato',map:'Map',result:'Resultat',score:'Score',kills:'Kills',deaths:'Deaths',assists:'Assists',kd:'K/D',kpr:'Kills / runde',adr:'ADR',rating:'HaldLab',personal:'Personlig',hs:'HS %',opening:'Opening',utility:'Utility-skade'};
+export const historyColumns={date:'Dato',map:'Map',result:'Resultat',score:'Score',kills:'Kills',deaths:'Deaths',assists:'Assists',kd:'K/D',kpr:'Kills / runde',adr:'ADR',rating:'HaldLab',personal:'Personlig',leetifyRating:'Leetify Rating',hs:'HS %',opening:'Opening',utility:'Utility-skade'};
 export const defaultDirection=key=>['map','result'].includes(key)?'asc':'desc';
 function value(row,key,ratings){
  switch(key){
