@@ -11,19 +11,19 @@ export function coverageCounts(rows,results){
  counts.checked=rows.length-counts.unchecked-counts.pending;
  return counts;
 }
-const labels={available:'Data fundet',missing:'Ingen data returneret',error:'Opslag fejlede – prøv igen',access:'Adgang afvist',limited:'Grænse nået – prøv senere',pending:'Undersøger…',unchecked:'Ikke undersøgt'};
+const labels={available:'Data fundet',missing:'Leetify-data ikke tilgængelige',error:'Leetify-data ikke tilgængelige',access:'Adgang afvist',limited:'Grænse nået – prøv senere',pending:'Undersøger…',unchecked:'Ikke undersøgt'};
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export function createCoverage(){
  const $=id=>document.getElementById(id);
  let results=new Map(),rows=[],nickname='',busy=false,abort=new AbortController(),version=0;
  function render(){
   const n=coverageCounts(rows,results);
-  $('leetifyCoverageSummary').textContent=`${n.available} af ${n.checked} undersøgte maps har Leetify-data · ${n.unchecked} ikke undersøgt · ${n.pending} hentes`;
-  $('leetifyCoverageErrors').textContent=`${n.missing} uden returnerede spillerdata · ${n.error} fejl · ${n.access} med afvist adgang · ${n.limited} ramt af forespørgselsgrænse. En fejl beviser ikke, at kampen mangler hos Leetify.`;
+  $('leetifyCoverageSummary').textContent=`${n.available} af ${rows.length} maps i dit valgte udsnit har bekræftede Leetify-data · ${n.checked} undersøgt · ${n.unchecked} ikke undersøgt · ${n.pending} hentes`;
+  $('leetifyCoverageErrors').textContent=`${n.missing+n.error} uden tilgængelige Leetify-data · ${n.access} med afvist adgang · ${n.limited} ramt af forespørgselsgrænse. Manglende data tæller aldrig som nul. Årsagen kan ikke fastslås ud fra opslaget alene.`;
   $('leetifyCheck').disabled=busy||!n.unchecked;
   $('leetifyRetry').disabled=busy||!(n.error+n.missing+n.access+n.limited);
   $('leetifyCheck').textContent=busy?'Undersøger…':'Undersøg næste 10 maps';
-  $('leetifyCoverageRows').innerHTML=rows.map(row=>{const item=results.get(row.matchId)||{state:'unchecked'};return `<tr><td>${row.finishedAt?new Date(row.finishedAt*1000).toLocaleDateString('da-DK'):'—'}</td><td>${esc(row.map)}</td><td class="coverage-${item.state}">${labels[item.state]}</td><td>${item.state==='available'?`${item.fields.length} numeriske statistikfelter tilgængelige`:'—'}</td></tr>`;}).join('');
+  $('leetifyCoverageRows').innerHTML=rows.map(row=>{const item=results.get(row.matchId)||{state:'unchecked'};return `<tr><td>${row.finishedAt?new Date(row.finishedAt*1000).toLocaleDateString('da-DK'):'—'}</td><td>${esc(row.map)}</td><td class="coverage-${item.state}">${labels[item.state]}</td><td>${item.state==='available'?`${item.fields.length} numeriske statistikfelter tilgængelige`:['missing','error'].includes(item.state)?'Kampens demo er muligvis endnu ikke uploadet eller analyseret hos Leetify. Prøv igen efter upload.':'—'}</td></tr>`;}).join('');
  }
  async function run(retry=false){
   if(busy||!nickname)return;
