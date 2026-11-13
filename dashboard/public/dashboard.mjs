@@ -1,4 +1,5 @@
-import {leetifyFor,historyLeetifyCell,renderLeetifySection,statsDetails} from './leetify-stats.mjs';
+import {summarizeHalves,halfScoreNote,reboundSideStats,reboundSideCells} from './side-stats.mjs';
+import {leetifyRating,leetifyFor,historyLeetifyCell,renderLeetifySection,statsDetails} from './leetify-stats.mjs';
 import {sortHistory,historyColumns,defaultDirection} from './history-sort.mjs';
 import {rateHistory} from './ratings.mjs';
 import {reboundPairs,reboundSummary,killsPerRound,summarize,consistency,comparison,sessionGroups,afterResults,winInterval,stat,mergeDetails} from './analytics.mjs';
@@ -51,7 +52,7 @@ function renderRebound(){
  const rule=$('reboundRule').value;
  if(rule!=='all'&&(!$('reboundThreshold').value||!$('reboundThreshold').checkValidity())){
    $('reboundCount').textContent='Indtast en gyldig grænse';
-   $('reboundCards').innerHTML='';$('reboundSummary').innerHTML='';$('reboundPairs').innerHTML='';
+   $('reboundSideHelp').textContent='';$('reboundCards').innerHTML='';$('reboundSummary').innerHTML='';$('reboundPairs').innerHTML='';
    $('reboundInsight').textContent=rule==='kprBelow'?'Angiv kills pr. runde mellem 0 og 5, fx 0,60.':'Angiv et helt antal kills mellem 0 og 200.';$('reboundPairLabel').textContent='Ingen kamppar vist';return;
  }
  const pairs=reboundPairs(rows,data.matches,{rule,threshold,result:$('reboundResult').value,sameSession:$('reboundWindow').value==='session'});
@@ -62,10 +63,19 @@ function renderRebound(){
  $('reboundInsight').textContent=!pairs.length?'Ingen kamppar matcher. Prøv en anden grænse eller et bredere udsnit.':
  `I ${s.kpr.increased} af ${s.kpr.count} sammenlignelige par steg dine kills pr. runde. De faldt i ${s.kpr.decreased} og var uændrede i ${s.kpr.equal}. ${pairs.length<10?'Der er få observationer; læs det som eksempler, ikke et sikkert mønster.':'Dette beskriver dit valgte udsnit og er ikke en prognose for næste kamp.'}`;
  $('reboundSummary').innerHTML=[['Kills',s.kills,1],['Deaths',s.deaths,1],['Kills / runde',s.kpr,2],['ADR',s.adr,1]].map(([name,m,d])=>`<tr><td>${name}</td><td>${fmt(m.previous,d)}</td><td>${fmt(m.next,d)}</td><td>${delta(m.delta,d)}</td><td>${m.count} / ${pairs.length}</td></tr>`).join('');
+ const sideStats=reboundSideStats(pairs,leetifyMatches);
+ $('reboundSummary').insertAdjacentHTML('beforeend',sideStats.map(statistic=>{
+   const {label,kind,previous,next,delta:change,count}=statistic;
+   const format=kind==='rating'?leetifyRating:value=>fmt(value,1);
+   const difference=kind==='rating'?leetifyRating(change):delta(change,1);
+   return `<tr><td>${label}</td><td>${format(previous)}</td><td>${format(next)}</td><td>${difference}</td><td>${count} / ${pairs.length}</td></tr>`;
+ }).join(''));
+ const coverageNote=leetifyState==='loading'?' Henter Leetify-data…':leetifyState==='error'?' Leetify-data kunne ikke hentes.':'';
+ $('reboundSideHelp').textContent='Hver række sammenligner de samme kamppar før og efter. Halvlegstallene er holdets vundne runder i ordinær tid. CT/T er din personlige Leetify Rating.'+coverageNote;
  const result=r=>r.won===true?'Sejr':r.won===false?'Nederlag':'—';
  const link=(r,label)=>`<a href="https://www.faceit.com/en/cs2/room/${encodeURIComponent(r.matchId)}" target="_blank" rel="noopener">${label}</a>`;
  $('reboundPairLabel').textContent=`Se de konkrete kamppar (${Math.min(20,pairs.length)} nyeste af ${pairs.length})`;
- $('reboundPairs').innerHTML=pairs.slice(0,20).map(({previous:p,next:n})=>{const a=killsPerRound(p),b=killsPerRound(n);return `<tr><td>${date(p.finishedAt)} → ${date(n.finishedAt)}</td><td>${esc(p.map)} → ${esc(n.map)}</td><td>${result(p)}</td><td>${fmt(p.kills,0)} → ${fmt(n.kills,0)}</td><td>${fmt(p.deaths,0)} → ${fmt(n.deaths,0)}</td><td>${fmt(a,2)} → ${fmt(b,2)}</td><td>${delta(Number.isFinite(a)&&Number.isFinite(b)?b-a:null)}</td><td>${result(n)}</td><td>${link(p,'Før')} · ${link(n,'Efter')}</td></tr>`;}).join('');
+ $('reboundPairs').innerHTML=pairs.slice(0,20).map(({previous:p,next:n})=>{const a=killsPerRound(p),b=killsPerRound(n);return `<tr><td>${date(p.finishedAt)} → ${date(n.finishedAt)}</td><td>${esc(p.map)} → ${esc(n.map)}</td><td>${result(p)}</td><td>${fmt(p.kills,0)} → ${fmt(n.kills,0)}</td><td>${fmt(p.deaths,0)} → ${fmt(n.deaths,0)}</td><td>${fmt(a,2)} → ${fmt(b,2)}</td><td>${delta(Number.isFinite(a)&&Number.isFinite(b)?b-a:null)}</td><td>${result(n)}</td>${reboundSideCells(p,n,leetifyMatches)}<td>${link(p,'Før')} · ${link(n,'Efter')}</td></tr>`;}).join('');
 }
 function ratingCells(r,ratings){
  const value=ratings.get(r.id),labels={adr:'Skade / runde',kpr:'Kills / runde',dpr:'Deaths / runde',od:'Opening-balance / runde',fpr:'Flashede fjender / runde'};
@@ -80,6 +90,13 @@ function render(){
  $('scope').textContent=`${rows.length} af ${data.matches.length} indlæste maps${rows.length?' · '+date(rows.at(-1).finishedAt)+' – '+date(rows[0].finishedAt):' · Ingen kampe matcher filtrene'}.`;
  $('overview').innerHTML=metric('Winrate',pct(s.winrate),`${s.wins} sejre · ${s.losses} nederlag`)+metric('K/D',fmt(s.kd,2),'Samlede kills / deaths')+metric('ADR',fmt(s.adr),`Skade / runde · ${s.adrCoverage} maps`)+metric('Kills / runde',fmt(s.kpr,2),'Samlede kills / runder')+metric('Headshots',pct(s.hs),'Headshot-kills / kills')+metric('Multikill-runder',pct(s.multi),'Runder med mindst 2 kills');
  $('combat').innerHTML=[['KILLS',fmt(s.kills,0)],['DEATHS',fmt(s.deaths,0)],['ASSISTS',fmt(s.assists,0)],['DEATHS / RUNDE',fmt(s.dpr,2)]].map(([k,v])=>`<span>${k}<b>${v}</b></span>`).join('');
+ const halves=summarizeHalves(rows);
+ $('halfCoverage').textContent=`${halves.count} af ${rows.length} maps med halvlegsscore`;
+ $('halfOverview').innerHTML=[
+   ['1. halvleg',fmt(halves.first)],
+   ['2. halvleg',fmt(halves.second)],
+   ['Overtidsrunder pr. map · '+halves.overtimeCount+' maps',fmt(halves.overtime)],
+ ].map(([label,value])=>`<span>${label}<b>${value}</b></span>`).join('');
  let insight='';
  if(compare){const diff=compare.recent.adr-compare.previous.adr,valid=compare.recent.adr!==null&&compare.previous.adr!==null;insight+=`<div class="insight"><strong class="${valid&&diff>=0?'positive':'negative'}">${valid?(diff>=0?'+':'')+fmt(diff)+' ADR':'—'}</strong><p>Seneste ${compare.window} mod foregående ${compare.window} maps i dit udsnit. ${fmt(compare.recent.adr)} mod ${fmt(compare.previous.adr)} ADR.</p></div>`;}else insight+='<div class="insight"><strong>Form kræver 20 maps</strong><p>Udvid dit udsnit for at sammenligne to lige store perioder.</p></div>';
  insight+=`<div class="insight"><strong>${fmt(c.median)} ADR i median</strong><p>Den midterste halvdel af dine maps ligger mellem ${fmt(c.low)} og ${fmt(c.high)} ADR. Baseret på ${c.count} maps.</p></div>`;
@@ -92,7 +109,7 @@ function render(){
  $('matchCount').textContent=`${rows.length} maps · ${historyColumns[historySort.key]} ${historySort.direction==='asc'?'↑':'↓'}`;
  document.querySelectorAll('#history th[aria-sort]').forEach(th=>th.setAttribute('aria-sort','none'));
  document.querySelectorAll('[data-history-sort]').forEach(button=>{const active=button.dataset.historySort===historySort.key;button.classList.toggle('is-sorted',active);button.querySelector('.sort-arrow').textContent=active?(historySort.direction==='asc'?'↑':'↓'):'↕';button.setAttribute('aria-label',`${historyColumns[button.dataset.historySort]}: sortér ${active&&historySort.direction==='desc'?'stigende':active?'faldende':defaultDirection(button.dataset.historySort)==='asc'?'stigende':'faldende'}`);if(active)button.closest('th').setAttribute('aria-sort',historySort.direction==='asc'?'ascending':'descending');});
- $('matches').innerHTML=sortHistory(rows.map(r=>({...r,leetifyRating:leetifyFor(r,leetifyMatches)?.stats.leetify_rating??null})),historySort.key,historySort.direction,ratings).map(r=>`<tr><td>${date(r.finishedAt)}<small class="match-time">${r.finishedAt?new Date(r.finishedAt*1000).toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'}):''}</small></td><td class="map-name">${esc(r.map)}</td><td><span class="badge ${r.won===true?'win':r.won===false?'loss':''}">${r.won===true?'SEJR':r.won===false?'TABT':'—'}</span></td><td>${esc(r.score)}</td><td>${fmt(r.kills,0)} / ${fmt(r.deaths,0)} / ${fmt(r.assists,0)}</td><td>${fmt(r.deaths?r.kills/r.deaths:null,2)}</td><td>${fmt(killsPerRound(r),2)}</td><td>${fmt(r.adr)}</td>${ratingCells(r,ratings)}${historyLeetifyCell(r,leetifyMatches,leetifyState)}<td>${fmt(r.headshots,0)}</td><td>${fmt(stat(r,'Entry Wins'),0)} / ${fmt(stat(r,'Entry Count'),0)}</td><td>${fmt(stat(r,'Utility Damage'),0)}</td><td><a href="https://www.faceit.com/en/cs2/room/${encodeURIComponent(r.matchId)}" target="_blank" rel="noopener" aria-label="Åbn ${esc(r.map)} ${date(r.finishedAt)} på FACEIT">Åbn</a></td></tr>`).join('')||'<tr><td colspan="15" class="empty">Ingen kampe matcher filtrene</td></tr>';
+ $('matches').innerHTML=sortHistory(rows.map(r=>({...r,leetifyRating:leetifyFor(r,leetifyMatches)?.stats.leetify_rating??null})),historySort.key,historySort.direction,ratings).map(r=>`<tr><td>${date(r.finishedAt)}<small class="match-time">${r.finishedAt?new Date(r.finishedAt*1000).toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'}):''}</small></td><td class="map-name">${esc(r.map)}</td><td><span class="badge ${r.won===true?'win':r.won===false?'loss':''}">${r.won===true?'SEJR':r.won===false?'TABT':'—'}</span></td><td>${esc(r.score)}${halfScoreNote(r)}</td><td>${fmt(r.kills,0)} / ${fmt(r.deaths,0)} / ${fmt(r.assists,0)}</td><td>${fmt(r.deaths?r.kills/r.deaths:null,2)}</td><td>${fmt(killsPerRound(r),2)}</td><td>${fmt(r.adr)}</td>${ratingCells(r,ratings)}${historyLeetifyCell(r,leetifyMatches,leetifyState)}<td>${fmt(r.headshots,0)}</td><td>${fmt(stat(r,'Entry Wins'),0)} / ${fmt(stat(r,'Entry Count'),0)}</td><td>${fmt(stat(r,'Utility Damage'),0)}</td><td><a href="https://www.faceit.com/en/cs2/room/${encodeURIComponent(r.matchId)}" target="_blank" rel="noopener" aria-label="Åbn ${esc(r.map)} ${date(r.finishedAt)} på FACEIT">Åbn</a></td></tr>`).join('')||'<tr><td colspan="15" class="empty">Ingen kampe matcher filtrene</td></tr>';
  const recent=data.matches.filter(r=>r.finishedAt>=Date.now()/1000-30*86400),rs=summarize(recent),unique=new Set(recent.map(r=>r.matchId));
  const gain=Number.isFinite(rs.winrate)?25*(2*rs.winrate-1):0,missing=Math.max(0,2001-data.elo);
  $('forecast').textContent=data.elo>=2001?'Spilleren er allerede level 10.':recent.length<10||unique.size!==recent.length?'Der er ikke nok nyere enkeltmap-kampe til et meningsfuldt scenarie.':gain<=0?'Winrate i de seneste 30 dage giver ikke en positiv forventet Elo-ændring med antagelsen om ±25 Elo.':`${fmt(missing,0)} Elo til 2.001. Med ${pct(rs.winrate)} winrate giver en simpel fremskrivning cirka ${Math.ceil(missing/gain)} kampe. Det er et scenarie, ikke en forventet dato eller garanti.`;

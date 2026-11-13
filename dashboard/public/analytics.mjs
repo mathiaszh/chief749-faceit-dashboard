@@ -131,17 +131,18 @@ export function reboundPairs(selectedPrevious, allRows, {rule='kprBelow',thresho
   }
   return pairs.sort((a,b)=>b.previous.finishedAt-a.previous.finishedAt);
 }
+export function pairedMetric(pairs,getValue){
+  const values=pairs.map(({previous,next})=>[getValue(previous),getValue(next)])
+    .filter(([a,b])=>Number.isFinite(a)&&Number.isFinite(b));
+  const changes=values.map(([a,b])=>b-a);
+  const increased=changes.filter(d=>d>1e-9).length;
+  const decreased=changes.filter(d=>d< -1e-9).length;
+  return {count:values.length,previous:average(values.map(v=>v[0])),next:average(values.map(v=>v[1])),
+    delta:average(changes),increased,decreased,equal:values.length-increased-decreased,
+    improvementRate:values.length?increased/values.length:null};
+}
 export function reboundSummary(pairs){
-  function metric(getValue){
-    const values=pairs.map(({previous,next})=>[getValue(previous),getValue(next)])
-      .filter(([a,b])=>Number.isFinite(a)&&Number.isFinite(b));
-    const changes=values.map(([a,b])=>b-a);
-    const increased=changes.filter(d=>d>1e-9).length;
-    const decreased=changes.filter(d=>d< -1e-9).length;
-    return {count:values.length,previous:average(values.map(v=>v[0])),next:average(values.map(v=>v[1])),
-      delta:average(changes),increased,decreased,equal:values.length-increased-decreased,
-      improvementRate:values.length?increased/values.length:null};
-  }
+  const metric=getValue=>pairedMetric(pairs,getValue);
   const decided=pairs.filter(p=>typeof p.next.won==='boolean');
   return {count:pairs.length,kills:metric(r=>r.kills),deaths:metric(r=>r.deaths),kpr:metric(killsPerRound),adr:metric(r=>r.adr),
     winrate:decided.length?decided.filter(p=>p.next.won).length/decided.length:null,decided:decided.length};

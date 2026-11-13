@@ -1,3 +1,4 @@
+import {average} from './analytics.mjs';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const mapKey=s=>String(s||'').toLowerCase().replace(/^de_/,'').replace(/[^a-z0-9]/g,'');
 const number=(v,d=1)=>Number.isFinite(v)?v.toLocaleString('da-DK',{minimumFractionDigits:d,maximumFractionDigits:d}):'—';
@@ -34,6 +35,15 @@ export function historyLeetifyCell(row,matches,state){
 export function renderLeetifySection(rows,matches,state){
  const $=id=>document.getElementById(id),available=rows.map(row=>({row,match:leetifyFor(row,matches)})).filter(x=>x.match);
  $('leetifyStatus').textContent=state==='loading'?'Henter automatisk Leetify-statistik…':state==='error'?'Leetify kunne ikke svare. Dine FACEIT-statistikker er stadig tilgængelige.':`${available.length} af ${rows.length} maps i dit valgte udsnit har tilgængelige Leetify-statistikker.`;
+ const sideMatches=available.filter(({match}) =>
+  Number.isFinite(match.stats.ct_leetify_rating) && Number.isFinite(match.stats.t_leetify_rating));
+ const sideCards=$('leetifySides');
+ sideCards.hidden=!sideMatches.length;
+ sideCards.innerHTML=sideMatches.length?[
+  ['Gns. CT Leetify Rating',leetifyRating(average(sideMatches.map(({match})=>match.stats.ct_leetify_rating)))],
+  ['Gns. T Leetify Rating',leetifyRating(average(sideMatches.map(({match})=>match.stats.t_leetify_rating)))],
+  ['MAPS MED BEGGE RATINGS',sideMatches.length+' / '+rows.length],
+ ].map(([label,value])=>`<span>${label}<b>${value}</b></span>`).join(''):'';
  $('leetifyRetryStats').hidden=state!=='error';
- $('leetifyMatchRows').innerHTML=available.map(({row,match})=>`<tr><td>${row.finishedAt?new Date(row.finishedAt*1000).toLocaleDateString('da-DK'):'—'}</td><td>${esc(row.map)}</td><td><button class="leetify-rating" type="button" data-leetify-row="${esc(row.id)}">${leetifyRating(match.stats.leetify_rating)}<small>Se alle stats</small></button></td><td>${metricValue(match.stats,'preaim')}</td><td>${metricValue(match.stats,'reaction_time')}</td><td>${metricValue(match.stats,'counter_strafing_shots_good_ratio')}</td><td>${metricValue(match.stats,'spray_accuracy')}</td><td><a class="leetify-source" href="${matchLink(match)}" target="_blank" rel="noopener">View on Leetify ↗</a></td></tr>`).join('')||`<tr><td colspan="8">${state==='loading'?'Statistikkerne vises her, så snart de er hentet.':state==='error'?'Prøv igen om lidt.':'Ingen Leetify-statistikker i dette udsnit. Prøv et andet filter, eller upload en manglende demo til Leetify.'}</td></tr>`;
+ $('leetifyMatchRows').innerHTML=available.map(({row,match})=>`<tr><td>${row.finishedAt?new Date(row.finishedAt*1000).toLocaleDateString('da-DK'):'—'}</td><td>${esc(row.map)}</td><td><button class="leetify-rating" type="button" data-leetify-row="${esc(row.id)}">${leetifyRating(match.stats.leetify_rating)}<small>Se alle stats</small></button></td><td>${metricValue(match.stats,'ct_leetify_rating')}</td><td>${metricValue(match.stats,'t_leetify_rating')}</td><td>${metricValue(match.stats,'preaim')}</td><td>${metricValue(match.stats,'reaction_time')}</td><td>${metricValue(match.stats,'counter_strafing_shots_good_ratio')}</td><td>${metricValue(match.stats,'spray_accuracy')}</td><td><a class="leetify-source" href="${matchLink(match)}" target="_blank" rel="noopener">View on Leetify ↗</a></td></tr>`).join('')||`<tr><td colspan="10">${state==='loading'?'Statistikkerne vises her, så snart de er hentet.':state==='error'?'Prøv igen om lidt.':'Ingen Leetify-statistikker i dette udsnit. Prøv et andet filter, eller upload en manglende demo til Leetify.'}</td></tr>`;
 }
