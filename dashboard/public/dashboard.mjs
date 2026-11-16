@@ -1,3 +1,4 @@
+import {followupLeetifyStats,leetifyRules,passesLeetifyThreshold,renderMapCard} from './combined-stats.mjs';
 import {summarizeHalves,halfScoreNote,reboundSideStats,reboundSideCells} from './side-stats.mjs';
 import {coloredLeetifyRating,leetifyFor,historyLeetifyCell,renderLeetifySection,statsDetails} from './leetify-stats.mjs';
 import {sortHistory,historyColumns,defaultDirection} from './history-sort.mjs';
@@ -13,9 +14,9 @@ let ratingReference=null,ratingReferenceError=false;
 const attempted=new Set();
 let leetifyMatches=[],leetifyState='loading',leetifyGeneration=0;
 let leetifyController=null;
-let activeView='overview';
+let activeView='overview', focusedMap=null;
 let historySort={key:'date',direction:'desc'};
-const viewHelp={leetify:'Sigte, bevægelse og præstation fra Leetify. Klik på en rating for at se kampens detaljer.',overview:'Dit overblik og din udvikling i det valgte udsnit.',details:'Dine opening-dueller, clutches og granater. Datadækning viser, hvor mange maps tallene bygger på.',maps:'Sammenlign dine maps. Brug antal kampe og usikkerhedsinterval sammen med winrate.',sessions:'Hvordan ændrer dine tal sig fra første til senere kamp i en session?',followup:'Se resultatet i kampen efter. Det hurtige overblik og din egen sammenligning forklarer nedenfor, hvilken kamp filtrene gælder for.',history:'Alle individuelle resultater i dit udsnit, med links til kampene på FACEIT.'};
+const viewHelp={leetify:'Sigte, bevægelse og præstation fra Leetify. Klik på en rating for at se kampens detaljer.',overview:'Dit overblik og din udvikling i det valgte udsnit.',details:'Dine opening-dueller, clutches og granater. Datadækning viser, hvor mange maps tallene bygger på.',maps:'Vælg et map for at se FACEIT og Leetify samlet.',sessions:'Hvordan ændrer dine tal sig fra første til senere kamp i en session?',followup:'Se resultatet i kampen efter. Det hurtige overblik og din egen sammenligning forklarer nedenfor, hvilken kamp filtrene gælder for.',history:'Alle individuelle resultater i dit udsnit, med links til kampene på FACEIT.'};
 const aliases={form:'overview',mapSection:'maps',rebound:'followup',afterOverview:'followup'};
 function setView(view,writeUrl=true){
  activeView=viewHelp[view]?view:(aliases[view]||'overview');
@@ -28,9 +29,19 @@ function setView(view,writeUrl=true){
 function resetFilters(){for(const [id,value] of Object.entries({limit:'all',days:'all',map:'all',result:'all',mapSort:'count',mapMinimum:'0'}))$(id).value=value;if(data)render();}
 function syncRule(resetValue=false){
  const field=$('reboundThreshold'),rule=$('reboundRule').value;
- field.disabled=rule==='all';field.step=rule==='kprBelow'?'0.01':'1';field.max=rule==='kprBelow'?'5':'200';
- $('thresholdLabel').textContent=rule==='all'?'Grænse · ikke relevant':rule==='kprBelow'?'Grænse · kills / runde':'Grænse · kills';
- if(resetValue)field.value=rule==='kprBelow'?'0.6':'10';
+ const leetifyRule=leetifyRules[rule];
+ field.disabled=rule==='all';
+ field.min=leetifyRule?.min??0;
+ field.max=leetifyRule?.max??(rule==='kprBelow'?5:200);
+ field.step=leetifyRule?.step??(rule==='kprBelow'?0.01:1);
+ $('reboundDirectionLabel').hidden=!leetifyRule;
+ $('reboundDirection').disabled=!leetifyRule;
+ $('thresholdLabel').textContent=leetifyRule?'Grænse · '+leetifyRule.unit:
+   rule==='all'?'Grænse · ikke relevant':rule==='kprBelow'?'Grænse · kills / runde':'Grænse · kills';
+ if(resetValue){
+   field.value=leetifyRule?.initial??(rule==='kprBelow'?0.6:10);
+   $('reboundDirection').value=leetifyRule?.direction??'below';
+ }
 }
 function applyPreset(preset){
  $('reboundResult').value=preset==='weak'?'all':'loss';
@@ -50,12 +61,25 @@ function afterResultRow(s){
 function renderRebound(){
  const threshold=Number($('reboundThreshold').value);
  const rule=$('reboundRule').value;
+ const leetifyRule=leetifyRules[rule];
  if(rule!=='all'&&(!$('reboundThreshold').value||!$('reboundThreshold').checkValidity())){
    $('reboundCount').textContent='Indtast en gyldig grænse';
-   $('reboundSideHelp').textContent='';$('reboundCards').innerHTML='';$('reboundSummary').innerHTML='';$('reboundPairs').innerHTML='';
-   $('reboundInsight').textContent=rule==='kprBelow'?'Angiv kills pr. runde mellem 0 og 5, fx 0,60.':'Angiv et helt antal kills mellem 0 og 200.';$('reboundPairLabel').textContent='Ingen kamppar vist';return;
+   $('reboundSideHelp').textContent='';$('reboundLeetifyHelp').textContent='';$('reboundCards').innerHTML='';$('reboundSummary').innerHTML='';$('reboundPairs').innerHTML='';
+   $('reboundInsight').textContent=leetifyRule?`Angiv en grænse fra ${leetifyRule.min} til ${leetifyRule.max} (${leetifyRule.unit}).`:rule==='kprBelow'?'Angiv kills pr. runde mellem 0 og 5, fx 0,60.':'Angiv et helt antal kills mellem 0 og 200.';$('reboundPairLabel').textContent='Ingen kamppar vist';return;
  }
- const pairs=reboundPairs(rows,data.matches,{rule,threshold,result:$('reboundResult').value,sameSession:$('reboundWindow').value==='session'});
+ const direction=$('reboundDirection').value;
+ const candidates=reboundPairs(rows,data.matches,{
+   rule:leetifyRule?'all':rule,threshold,result:$('reboundResult').value,
+   sameSession:$('reboundWindow').value==='session',
+ });
+ const getTrigger=row=>leetifyFor(row,leetifyMatches)?.stats[rule];
+ const pairs=leetifyRule?candidates.filter(({previous})=>
+   passesLeetifyThreshold(getTrigger(previous),leetifyRule,threshold,direction)):candidates;
+ const coveredTriggers=leetifyRule?candidates.filter(({previous})=>Number.isFinite(getTrigger(previous))).length:0;
+ $('reboundLeetifyHelp').textContent=leetifyRule?
+   leetifyState==='loading'?'Henter Leetify-data til filteret…':
+   leetifyState==='error'?'Leetify-data kunne ikke hentes til filteret.':
+   `${coveredTriggers} af ${candidates.length} mulige startkampe har tal til filteret. ${pairs.length} opfylder grænsen.`:'';
  const s=reboundSummary(pairs);
  const delta=(v,d=2)=>Number.isFinite(v)?(v>0?'+':'')+fmt(v,d):'—';
  $('reboundCount').textContent=`${pairs.length} kamppar${pairs.length<10?' · lille datagrundlag':''}`;
@@ -63,11 +87,11 @@ function renderRebound(){
  $('reboundInsight').textContent=!pairs.length?'Ingen kamppar matcher. Prøv en anden grænse eller et bredere udsnit.':
  `I ${s.kpr.increased} af ${s.kpr.count} sammenlignelige par steg dine kills pr. runde. De faldt i ${s.kpr.decreased} og var uændrede i ${s.kpr.equal}. ${pairs.length<10?'Der er få observationer; læs det som eksempler, ikke et sikkert mønster.':'Dette beskriver dit valgte udsnit og er ikke en prognose for næste kamp.'}`;
  $('reboundSummary').innerHTML=[['Kills',s.kills,1],['Deaths',s.deaths,1],['Kills / runde',s.kpr,2],['ADR',s.adr,1]].map(([name,m,d])=>`<tr><td>${name}</td><td>${fmt(m.previous,d)}</td><td>${fmt(m.next,d)}</td><td>${delta(m.delta,d)}</td><td>${m.count} / ${pairs.length}</td></tr>`).join('');
- const sideStats=reboundSideStats(pairs,leetifyMatches);
+ const sideStats=[...reboundSideStats(pairs,leetifyMatches),...followupLeetifyStats(pairs,leetifyMatches)];
  $('reboundSummary').insertAdjacentHTML('beforeend',sideStats.map(statistic=>{
    const {label,kind,previous,next,delta:change,count}=statistic;
-   const format=kind==='rating'?coloredLeetifyRating:value=>fmt(value,1);
-   const difference=kind==='rating'?coloredLeetifyRating(change):delta(change,1);
+   const format=statistic.format??(kind==='rating'?coloredLeetifyRating:value=>fmt(value,1));
+   const difference=statistic.changeFormat?statistic.changeFormat(change):kind==='rating'?coloredLeetifyRating(change):delta(change,1);
    return `<tr><td>${label}</td><td>${format(previous)}</td><td>${format(next)}</td><td>${difference}</td><td>${count} / ${pairs.length}</td></tr>`;
  }).join(''));
  const coverageNote=leetifyState==='loading'?' Henter Leetify-data…':leetifyState==='error'?' Leetify-data kunne ikke hentes.':'';
@@ -82,6 +106,16 @@ function ratingCells(r,ratings){
  if(value?.score==null)return `<td colspan="2"><small>${ratingReferenceError?'Rating-reference kunne ikke hentes':!ratingReference?'Henter rating-reference…':'Afventer detaljer / mangler data'}</small></td>`;
  const parts=value.parts.map(p=>`<li>${labels[p.key]}: ${fmt(p.value,2)} → ${p.contribution>=0?'+':''}${fmt(p.contribution,3)}</li>`).join('');
  return `<td class="rating-cell"><details><summary>${fmt(value.score,2)}</summary><div>Udgangspunkt: 1,00<ul>${parts}</ul>Summen begrænses til 0–2.</div></details></td><td class="personal-cell">${value.personal===null?'—':fmt(value.personal,0)+' / 100'}<small>${value.historyCount} tidligere maps · ${value.historyScope==='map'?'samme map':'alle maps'}${value.personal===null?' · mindst 20 kræves':''}</small></td>`;
+}
+function updateMapCard(){
+ const buttons=[...$('maps').querySelectorAll('[data-map]')];
+ const mapNames=buttons.map(button=>button.dataset.map);
+ if(!mapNames.includes(focusedMap))focusedMap=mapNames[0]??null;
+ $('mapCard').hidden=!focusedMap;
+ for(const button of buttons)button.setAttribute('aria-pressed',String(button.dataset.map===focusedMap));
+ if(!focusedMap)return;
+ $('mapCardTitle').textContent='Mapkort · '+focusedMap;
+ renderMapCard({rows:rows.filter(row=>row.map===focusedMap),matches:leetifyMatches,state:leetifyState,metric,fmt,pct,date,esc});
 }
 function render(){
  const ratings=rateHistory(data.matches,ratingReference);
@@ -105,6 +139,7 @@ function render(){
  $('advanced').innerHTML=advanced('Opening-dueller vundet',pct(s.entry.value),`${fmt(s.entry.denominator,0)} forsøg · deltagelse i ${pct(s.entryRate.value)} af runderne`,s.entry.count)+advanced('1v1-clutches vundet',pct(s.clutch1.value),`${fmt(s.clutch1.denominator,0)} registrerede situationer`,s.clutch1.count)+advanced('1v2-clutches vundet',pct(s.clutch2.value),`${fmt(s.clutch2.denominator,0)} registrerede situationer`,s.clutch2.count)+advanced('Utility-skade / runde',fmt(s.utility.value,2),`${fmt(s.utilityUsage.value,2)} utility kastet / runde`,s.utility.count)+advanced('Fjender blindet / flash',fmt(s.flashes.value,2),`${fmt(s.flashes.denominator,0)} flashes kastet`,s.flashes.count)+advanced('Flashes / runde',fmt(s.flashUsage.value,2),'Flash-forbrug fordelt på spillede runder',s.flashUsage.count);
  $('detailStatus').textContent=detailMessage||`${s.entry.count} / ${rows.length} maps med opening-data`;
  $('maps').innerHTML=[...new Set(rows.map(r=>r.map))].map(map=>({map,...summarize(rows.filter(r=>r.map===map))})).filter(m=>m.count>=Number($('mapMinimum').value)).sort((a,b)=>(b[$('mapSort').value]??-1)-(a[$('mapSort').value]??-1)||b.count-a.count).map(m=>{const interval=winInterval(m.wins,m.decided);return `<tr><td class="map-name"><button type="button" class="map-link" data-map="${esc(m.map)}">${esc(m.map)}</button></td><td>${m.count}</td><td>${pct(m.winrate)}<div class="bar"><i style="width:${(m.winrate||0)*100}%"></i></div></td><td>${interval?fmt(interval[0]*100,0)+'–'+fmt(interval[1]*100,0)+' %':'—'}</td><td>${fmt(m.kd,2)}</td><td>${fmt(m.adr)}</td><td>${pct(m.entry.value)}</td><td>${fmt(m.utility.value,2)}</td></tr>`;}).join('')||'<tr><td colspan="8" class="empty">Ingen maps opfylder filtrene og mindstekravet til antal kampe</td></tr>';
+ updateMapCard();
  $('sessionTable').innerHTML=sessionGroups(rows,data.matches).map(groupRow).join('');$('afterTable').innerHTML=afterResults(rows,data.matches).map(afterResultRow).join('');
  $('matchCount').textContent=`${rows.length} maps · ${historyColumns[historySort.key]} ${historySort.direction==='asc'?'↑':'↓'}`;
  document.querySelectorAll('#history th[aria-sort]').forEach(th=>th.setAttribute('aria-sort','none'));
@@ -134,7 +169,7 @@ async function requestPlayer(nickname,signal){
    return {...await backup.json(),apiConfigured:false,source:'backup'};
  }
 }
-async function load(nickname){leetifyController?.abort();leetifyGeneration++;controller?.abort();controller=new AbortController();const token=++generation;loading=true;attempted.clear();detailMessage='';$('searchButton').disabled=true;$('refresh').disabled=true;$('refresh').textContent='Henter…';$('loadingState').hidden=Boolean(data);$('error').hidden=true;$('status').textContent=`Henter ${nickname}…`;try{const result=await requestPlayer(nickname,controller.signal);if(token!==generation)return;if(data&&data.nickname.toLowerCase()!==result.nickname.toLowerCase()){for(const [id,value] of Object.entries({limit:'100',days:'all',map:'all',result:'all'}))$(id).value=value;}data=result;data.matches||=[];leetifyMatches=[];leetifyState='loading';$('leetifyDialog').close();$('playerName').textContent=data.nickname;$('nickname').value=data.nickname;$('elo').textContent=fmt(data.elo,0);$('level').textContent=`ELO · LEVEL ${data.level??'—'}`;$('profileLink').href='https://www.faceit.com/en/players/'+encodeURIComponent(data.nickname);$('configuration').hidden=data.apiConfigured;$('nickname').disabled=!data.apiConfigured;$('searchButton').textContent=data.apiConfigured?'Find spiller':'Søgning afventer';$('status').textContent=`${data.matches.length} maps · ${data.source==='backup'?'Gemte data · live-opdatering utilgængelig':data.source==='scheduled'?'Automatisk arkiv':'Direkte FACEIT-opslag'} · Opdateret ${new Date(data.updatedAt).toLocaleString('da-DK')}`;const map=$('map').value;$('map').innerHTML='<option value="all">Alle maps</option>'+[...new Set(data.matches.map(r=>r.map))].sort().map(m=>`<option value="${esc(m)}">${esc(m)}</option>`).join('');if([...$('map').options].some(o=>o.value===map))$('map').value=map;const url=new URL(location.href);url.searchParams.set('nickname',data.nickname);history.replaceState(null,'',url);render();void loadLeetify();void enrich(token);}catch(e){if(e.name==='AbortError'||token!==generation)return;$('error').textContent=e.message;$('error').hidden=false;$('loadingState').hidden=true;$('status').textContent=data?`Viser fortsat ${data.nickname}s senest indlæste data. Opslaget på ${nickname} mislykkedes.`:'Kampdata kunne ikke hentes.';}finally{if(token===generation){loading=false;$('searchButton').disabled=data?.apiConfigured===false;$('refresh').disabled=false;$('refresh').textContent='Opdater data';}}}
+async function load(nickname){leetifyController?.abort();leetifyGeneration++;controller?.abort();controller=new AbortController();const token=++generation;loading=true;attempted.clear();detailMessage='';$('searchButton').disabled=true;$('refresh').disabled=true;$('refresh').textContent='Henter…';$('loadingState').hidden=Boolean(data);$('error').hidden=true;$('status').textContent=`Henter ${nickname}…`;try{const result=await requestPlayer(nickname,controller.signal);if(token!==generation)return;if(data&&data.nickname.toLowerCase()!==result.nickname.toLowerCase()){for(const [id,value] of Object.entries({limit:'100',days:'all',map:'all',result:'all'}))$(id).value=value;}if(data?.nickname!==result.nickname)focusedMap=null;data=result;data.matches||=[];leetifyMatches=[];leetifyState='loading';$('leetifyDialog').close();$('playerName').textContent=data.nickname;$('nickname').value=data.nickname;$('elo').textContent=fmt(data.elo,0);$('level').textContent=`ELO · LEVEL ${data.level??'—'}`;$('profileLink').href='https://www.faceit.com/en/players/'+encodeURIComponent(data.nickname);$('configuration').hidden=data.apiConfigured;$('nickname').disabled=!data.apiConfigured;$('searchButton').textContent=data.apiConfigured?'Find spiller':'Søgning afventer';$('status').textContent=`${data.matches.length} maps · ${data.source==='backup'?'Gemte data · live-opdatering utilgængelig':data.source==='scheduled'?'Automatisk arkiv':'Direkte FACEIT-opslag'} · Opdateret ${new Date(data.updatedAt).toLocaleString('da-DK')}`;const map=$('map').value;$('map').innerHTML='<option value="all">Alle maps</option>'+[...new Set(data.matches.map(r=>r.map))].sort().map(m=>`<option value="${esc(m)}">${esc(m)}</option>`).join('');if([...$('map').options].some(o=>o.value===map))$('map').value=map;const url=new URL(location.href);url.searchParams.set('nickname',data.nickname);history.replaceState(null,'',url);render();void loadLeetify();void enrich(token);}catch(e){if(e.name==='AbortError'||token!==generation)return;$('error').textContent=e.message;$('error').hidden=false;$('loadingState').hidden=true;$('status').textContent=data?`Viser fortsat ${data.nickname}s senest indlæste data. Opslaget på ${nickname} mislykkedes.`:'Kampdata kunne ikke hentes.';}finally{if(token===generation){loading=false;$('searchButton').disabled=data?.apiConfigured===false;$('refresh').disabled=false;$('refresh').textContent='Opdater data';}}}
 async function loadLeetify(){
  if(!data)return;
  leetifyController?.abort();leetifyController=new AbortController();const token=++leetifyGeneration,name=data.nickname;
@@ -152,19 +187,32 @@ $('leetifyClose').addEventListener('click',()=>$('leetifyDialog').close());
 document.addEventListener('click',event=>{
  const button=event.target.closest('[data-leetify-row]');if(!button||!data)return;
  const row=data.matches.find(r=>r.id===button.dataset.leetifyRow),match=row&&leetifyFor(row,leetifyMatches);if(!match)return;
- $('leetifyDialogContent').innerHTML=statsDetails(row,match);$('leetifyDialog').showModal();
+ const faceitStats=[
+   ['Resultat',row.won===true?'Sejr':row.won===false?'Nederlag':'—',esc(row.score)],
+   ['K / D / A', [row.kills,row.deaths,row.assists].map(value=>fmt(value,0)).join(' / '),''],
+   ['ADR',fmt(row.adr),'Skade pr. runde'],
+   ['Opening-dueller',fmt(stat(row,'Entry Wins'),0)+' / '+fmt(stat(row,'Entry Count'),0),'Vundet / forsøgt'],
+ ].map(([label,value,note])=>metric(label,value,note)).join('');
+ $('leetifyDialogContent').innerHTML=`<h3>FACEIT</h3><div class="metrics">${faceitStats}</div>${statsDetails(row,match)}`;$('leetifyDialog').showModal();
 });
 $('search').addEventListener('submit',e=>{e.preventDefault();void load($('nickname').value.trim());});$('refresh').addEventListener('click',()=>void load(data?.nickname||$('nickname').value.trim()));for(const id of ['limit','days','map','result'])$(id).addEventListener('change',()=>{if(data){render();}});$('chartMetric').addEventListener('change',draw);new ResizeObserver(()=>{if(data)draw();}).observe($('chart'));void load(new URL(location.href).searchParams.get('nickname')||'Chief749');
 
 $('reboundThreshold').addEventListener('input',()=>{if(data)renderRebound();});
-for(const id of ['reboundResult','reboundWindow','reboundThreshold'])$(id).addEventListener('change',()=>{if(data)renderRebound();});
+for(const id of ['reboundResult','reboundWindow','reboundThreshold','reboundDirection'])$(id).addEventListener('change',()=>{if(data)renderRebound();});
 $('reboundRule').addEventListener('change',()=>{syncRule(true);if(data)renderRebound();});
 
 $('viewNav').addEventListener('click',event=>{const button=event.target.closest('[data-view-target]');if(button)setView(button.dataset.viewTarget);});
 window.addEventListener('hashchange',()=>setView(location.hash.slice(1),false));
 $('resetFilters').addEventListener('click',resetFilters);$('resetEmpty').addEventListener('click',resetFilters);
 for(const id of ['mapSort','mapMinimum'])$(id).addEventListener('change',()=>{if(data)render();});
-$('maps').addEventListener('click',event=>{const button=event.target.closest('[data-map]');if(button){$('map').value=button.dataset.map;render();setView('overview');}});
+$('maps').addEventListener('click',event=>{const button=event.target.closest('[data-map]');if(button){focusedMap=button.dataset.map;updateMapCard();}});
+$('mapCardHistory').addEventListener('click',event=>{
+ if(!focusedMap)return;
+ event.preventDefault();
+ $('map').value=focusedMap;
+ render();
+ setView('history');
+});
 document.querySelectorAll('[data-preset]').forEach(button=>button.addEventListener('click',()=>applyPreset(button.dataset.preset)));
 syncRule();setView(location.hash.slice(1),false);
 

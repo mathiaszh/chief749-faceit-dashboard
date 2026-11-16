@@ -35,3 +35,8 @@ nav button:hover{background:#ffffff06}.filter-actions{display:flex;gap:8px;margi
 .leetify-rating-value.positive { color: #85d8aa; }
 .leetify-rating-value.negative { color: #f38f8f; }
 .leetify-rating-value.neutral { color: #aeb8c5; }
+
+#mapCard { margin-top: 22px; }
+#mapCard .metrics { margin-block: 12px; }
+#maps .map-link[aria-pressed="true"] { text-decoration: underline; text-underline-offset: 4px; }
+#reboundDirectionLabel[hidden] { display: none; }
