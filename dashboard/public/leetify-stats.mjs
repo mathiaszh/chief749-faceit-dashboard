@@ -2,7 +2,16 @@ import {average} from './analytics.mjs';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const mapKey=s=>String(s||'').toLowerCase().replace(/^de_/,'').replace(/[^a-z0-9]/g,'');
 const number=(v,d=1)=>Number.isFinite(v)?v.toLocaleString('da-DK',{minimumFractionDigits:d,maximumFractionDigits:d}):'—';
-export const leetifyRating=v=>Number.isFinite(v)?(v>0?'+':'')+number(v*100,2):'—';
+const ratingFormatter = new Intl.NumberFormat('da-DK', {
+ minimumFractionDigits:2, maximumFractionDigits:2, signDisplay:'exceptZero',
+});
+export const leetifyRating = value => Number.isFinite(value) ? ratingFormatter.format(value*100) : '—';
+
+export function coloredLeetifyRating(value) {
+ const label = leetifyRating(value);
+ const tone = label.startsWith('+') ? 'positive' : label.startsWith('-') ? 'negative' : 'neutral';
+ return `<span class="leetify-rating-value ${tone}">${label}</span>`;
+}
 export function leetifyFor(row,matches){
  const found=matches.filter(m=>m.sourceId===row.matchId&&mapKey(m.map)===mapKey(row.map)&&m.stats);
  return found.length===1?found[0]:null; // Never guess by date or map alone; ambiguous matches stay unavailable.
@@ -25,11 +34,11 @@ export const metrics=[
 export function metricValue(stats,key){const m=metrics.find(m=>m[0]===key),value=stats?.[key];return m&&Number.isFinite(value)?m[2](value):'—';}
 export function matchLink(match){return typeof match?.id==='string'&&/^[a-f\d-]{36}$/i.test(match.id)?'https://leetify.com/app/match-details/'+encodeURIComponent(match.id):'https://leetify.com/';}
 export function statsDetails(row,match){
- return `<h2>${esc(row.map)} · ${row.finishedAt?new Date(row.finishedAt*1000).toLocaleDateString('da-DK'):''}</h2><p>Leetify-statistik for denne kamp. Manglende felter vises som —.</p><div class="leetify-metrics">${metrics.map(([key,label,,help])=>`<article><span>${label}</span><strong>${metricValue(match.stats,key)}</strong><small>${help}</small></article>`).join('')}</div><p><a class="leetify-source" href="${matchLink(match)}" target="_blank" rel="noopener">View on Leetify ↗</a></p>`;
+ return `<h2>${esc(row.map)} · ${row.finishedAt?new Date(row.finishedAt*1000).toLocaleDateString('da-DK'):''}</h2><p>Leetify-statistik for denne kamp. Manglende felter vises som —.</p><div class="leetify-metrics">${metrics.map(([key,label,,help])=>`<article><span>${label}</span><strong>${key.endsWith('leetify_rating')?coloredLeetifyRating(match.stats[key]):metricValue(match.stats,key)}</strong><small>${help}</small></article>`).join('')}</div><p><a class="leetify-source" href="${matchLink(match)}" target="_blank" rel="noopener">View on Leetify ↗</a></p>`;
 }
 export function historyLeetifyCell(row,matches,state){
  const match=leetifyFor(row,matches);
- if(match)return `<td><button type="button" class="leetify-rating ${match.stats.leetify_rating>=0?'positive':'negative'}" data-leetify-row="${esc(row.id)}" aria-label="Se Leetify-statistik for ${esc(row.map)}">${leetifyRating(match.stats.leetify_rating)}<small>Se stats</small></button></td>`;
+ if(match)return `<td><button type="button" class="leetify-rating" data-leetify-row="${esc(row.id)}" aria-label="Se Leetify-statistik for ${esc(row.map)}">${coloredLeetifyRating(match.stats.leetify_rating)}<small>Se stats</small></button></td>`;
  return `<td><small class="muted">${state==='loading'?'Henter…':state==='error'?'Kunne ikke hentes':'Ingen Leetify-data'}</small></td>`;
 }
 export function renderLeetifySection(rows,matches,state){
@@ -40,10 +49,10 @@ export function renderLeetifySection(rows,matches,state){
  const sideCards=$('leetifySides');
  sideCards.hidden=!sideMatches.length;
  sideCards.innerHTML=sideMatches.length?[
-  ['Gns. CT Leetify Rating',leetifyRating(average(sideMatches.map(({match})=>match.stats.ct_leetify_rating)))],
-  ['Gns. T Leetify Rating',leetifyRating(average(sideMatches.map(({match})=>match.stats.t_leetify_rating)))],
+  ['Gns. CT Leetify Rating',coloredLeetifyRating(average(sideMatches.map(({match})=>match.stats.ct_leetify_rating)))],
+  ['Gns. T Leetify Rating',coloredLeetifyRating(average(sideMatches.map(({match})=>match.stats.t_leetify_rating)))],
   ['MAPS MED BEGGE RATINGS',sideMatches.length+' / '+rows.length],
  ].map(([label,value])=>`<span>${label}<b>${value}</b></span>`).join(''):'';
  $('leetifyRetryStats').hidden=state!=='error';
- $('leetifyMatchRows').innerHTML=available.map(({row,match})=>`<tr><td>${row.finishedAt?new Date(row.finishedAt*1000).toLocaleDateString('da-DK'):'—'}</td><td>${esc(row.map)}</td><td><button class="leetify-rating" type="button" data-leetify-row="${esc(row.id)}">${leetifyRating(match.stats.leetify_rating)}<small>Se alle stats</small></button></td><td>${metricValue(match.stats,'ct_leetify_rating')}</td><td>${metricValue(match.stats,'t_leetify_rating')}</td><td>${metricValue(match.stats,'preaim')}</td><td>${metricValue(match.stats,'reaction_time')}</td><td>${metricValue(match.stats,'counter_strafing_shots_good_ratio')}</td><td>${metricValue(match.stats,'spray_accuracy')}</td><td><a class="leetify-source" href="${matchLink(match)}" target="_blank" rel="noopener">View on Leetify ↗</a></td></tr>`).join('')||`<tr><td colspan="10">${state==='loading'?'Statistikkerne vises her, så snart de er hentet.':state==='error'?'Prøv igen om lidt.':'Ingen Leetify-statistikker i dette udsnit. Prøv et andet filter, eller upload en manglende demo til Leetify.'}</td></tr>`;
+ $('leetifyMatchRows').innerHTML=available.map(({row,match})=>`<tr><td>${row.finishedAt?new Date(row.finishedAt*1000).toLocaleDateString('da-DK'):'—'}</td><td>${esc(row.map)}</td><td><button class="leetify-rating" type="button" data-leetify-row="${esc(row.id)}">${coloredLeetifyRating(match.stats.leetify_rating)}<small>Se alle stats</small></button></td><td>${coloredLeetifyRating(match.stats.ct_leetify_rating)}</td><td>${coloredLeetifyRating(match.stats.t_leetify_rating)}</td><td>${metricValue(match.stats,'preaim')}</td><td>${metricValue(match.stats,'reaction_time')}</td><td>${metricValue(match.stats,'counter_strafing_shots_good_ratio')}</td><td>${metricValue(match.stats,'spray_accuracy')}</td><td><a class="leetify-source" href="${matchLink(match)}" target="_blank" rel="noopener">View on Leetify ↗</a></td></tr>`).join('')||`<tr><td colspan="10">${state==='loading'?'Statistikkerne vises her, så snart de er hentet.':state==='error'?'Prøv igen om lidt.':'Ingen Leetify-statistikker i dette udsnit. Prøv et andet filter, eller upload en manglende demo til Leetify.'}</td></tr>`;
 }

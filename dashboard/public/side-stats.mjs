@@ -1,5 +1,5 @@
 import {average, pairedMetric, stat} from './analytics.mjs';
-import {leetifyFor, leetifyRating, matchLink} from './leetify-stats.mjs';
+import {leetifyFor, coloredLeetifyRating, matchLink} from './leetify-stats.mjs';
 
 const halves = ['First Half Score', 'Second Half Score'];
 const sides = ['ct_leetify_rating', 't_leetify_rating'];
@@ -50,7 +50,7 @@ export function reboundSideCells(previous, next, matches) {
   const halfLines = halves.map((key, i) =>
     `<small>${i + 1}. halvleg: ${roundsWon(previous, key) ?? '—'} → ${roundsWon(next, key) ?? '—'}</small>`);
   const sideLines = sides.map((key, i) =>
-    `<small>${i === 0 ? 'CT' : 'T'}: ${leetifyRating(before?.stats[key])} → ${leetifyRating(after?.stats[key])}</small>`);
+    `<small>${i === 0 ? 'CT' : 'T'}: ${coloredLeetifyRating(before?.stats[key])} → ${coloredLeetifyRating(after?.stats[key])}</small>`);
   const sourceLinks = [before, after].map((match, i) => match
     ? `<small>${i === 0 ? 'Før' : 'Efter'} · <a class="leetify-source" href="${matchLink(match)}" target="_blank" rel="noopener">View on Leetify ↗</a></small>`
     : '');

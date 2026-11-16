@@ -1,5 +1,5 @@
 import {summarizeHalves,halfScoreNote,reboundSideStats,reboundSideCells} from './side-stats.mjs';
-import {leetifyRating,leetifyFor,historyLeetifyCell,renderLeetifySection,statsDetails} from './leetify-stats.mjs';
+import {coloredLeetifyRating,leetifyFor,historyLeetifyCell,renderLeetifySection,statsDetails} from './leetify-stats.mjs';
 import {sortHistory,historyColumns,defaultDirection} from './history-sort.mjs';
 import {rateHistory} from './ratings.mjs';
 import {reboundPairs,reboundSummary,killsPerRound,summarize,consistency,comparison,sessionGroups,afterResults,winInterval,stat,mergeDetails} from './analytics.mjs';
@@ -66,8 +66,8 @@ function renderRebound(){
  const sideStats=reboundSideStats(pairs,leetifyMatches);
  $('reboundSummary').insertAdjacentHTML('beforeend',sideStats.map(statistic=>{
    const {label,kind,previous,next,delta:change,count}=statistic;
-   const format=kind==='rating'?leetifyRating:value=>fmt(value,1);
-   const difference=kind==='rating'?leetifyRating(change):delta(change,1);
+   const format=kind==='rating'?coloredLeetifyRating:value=>fmt(value,1);
+   const difference=kind==='rating'?coloredLeetifyRating(change):delta(change,1);
    return `<tr><td>${label}</td><td>${format(previous)}</td><td>${format(next)}</td><td>${difference}</td><td>${count} / ${pairs.length}</td></tr>`;
  }).join(''));
  const coverageNote=leetifyState==='loading'?' Henter Leetify-data…':leetifyState==='error'?' Leetify-data kunne ikke hentes.':'';
