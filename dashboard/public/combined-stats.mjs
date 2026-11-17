@@ -1,5 +1,5 @@
 import {average, pairedMetric, summarize} from './analytics.mjs';
-import {coloredLeetifyRating, leetifyFor, matchLink, metrics} from './leetify-stats.mjs';
+import {coloredLeetifyRating, leetifyFor, metrics} from './leetify-stats.mjs';
 
 export const leetifyRules = {
   ct_leetify_rating: {unit:'rating', min:-100, max:100, step:0.01, initial:-5, scale:100, direction:'below'},
@@ -16,7 +16,7 @@ export function passesLeetifyThreshold(value, rule, threshold, direction) {
 }
 
 const mapFields = new Set([
-  'leetify_rating','ct_leetify_rating','t_leetify_rating','reaction_time',
+  'leetify_rating','reaction_time',
   'counter_strafing_shots_good_ratio','spray_accuracy','trade_kills_succeed','utility_on_death_avg',
 ]);
 const followupFields = new Set([
@@ -51,7 +51,7 @@ export function followupLeetifyStats(pairs, matches) {
   }));
 }
 
-export function renderMapCard({rows,matches,state,metric,fmt,pct,date,esc}) {
+export function renderMapCard({rows,matches,state,metric,fmt,pct}) {
   const byId = id => document.getElementById(id);
   const summary = summarize(rows);
   byId('mapCardFaceit').innerHTML = [
@@ -73,23 +73,4 @@ export function renderMapCard({rows,matches,state,metric,fmt,pct,date,esc}) {
       const values = covered.map(({match}) => match.stats[key]).filter(Number.isFinite);
       return metric(label,leetifyFormat(key,format)(average(values)),`${values.length} / ${rows.length} maps`);
     }).join('') : '';
-
-  const rated = covered.filter(({match}) => Number.isFinite(match.stats.leetify_rating));
-  const weakest = [...rated].sort((a,b) => a.match.stats.leetify_rating-b.match.stats.leetify_rating)[0];
-  const strongest = [...rated].sort((a,b) => b.match.stats.leetify_rating-a.match.stats.leetify_rating)[0];
-  const examples = weakest ? (weakest === strongest ? [weakest] : [weakest,strongest]) : [];
-  byId('mapCardExamples').innerHTML = examples.length ? `
-    <h3>Kampe at gense</h3>
-    <div class="table-wrap"><table>
-      <thead><tr><th scope="col">Kamp</th><th scope="col">Resultat</th><th scope="col">ADR</th><th scope="col">Leetify Rating</th><th scope="col">CT Rating</th><th scope="col">T Rating</th><th scope="col">Kilde</th></tr></thead>
-      <tbody>${examples.map(({row,match},i) => `<tr>
-        <td>${examples.length === 1 ? 'Kamp med rating' : i === 0 ? 'Laveste rating' : 'Højeste rating'}<small class="match-time">${date(row.finishedAt)}</small></td>
-        <td>${row.won === true ? 'Sejr' : row.won === false ? 'Nederlag' : '—'} · ${esc(row.score)}</td>
-        <td>${fmt(row.adr)}</td>
-        <td><button type="button" class="leetify-rating" data-leetify-row="${esc(row.id)}">${coloredLeetifyRating(match.stats.leetify_rating)}<small>Se kampens stats</small></button></td>
-        <td>${coloredLeetifyRating(match.stats.ct_leetify_rating)}</td>
-        <td>${coloredLeetifyRating(match.stats.t_leetify_rating)}</td>
-        <td><a class="leetify-source" href="${matchLink(match)}" target="_blank" rel="noopener">View on Leetify ↗</a></td>
-      </tr>`).join('')}</tbody>
-    </table></div>` : '';
 }

@@ -1,3 +1,5 @@
+import {ctPositions} from './ct-positions.mjs';
+import {renderMapFocus} from './map-focus.mjs';
 import {followupLeetifyStats,leetifyRules,passesLeetifyThreshold,renderMapCard} from './combined-stats.mjs';
 import {summarizeHalves,halfScoreNote,reboundSideStats,reboundSideCells} from './side-stats.mjs';
 import {coloredLeetifyRating,leetifyFor,historyLeetifyCell,renderLeetifySection,statsDetails} from './leetify-stats.mjs';
@@ -49,7 +51,7 @@ function applyPreset(preset){
  syncRule(true);if(data)renderRebound();
 }
 
-function selected(){if(!data)return [];let a=[...data.matches].sort((a,b)=>b.finishedAt-a.finishedAt);const days=$('days').value;if(days!=='all')a=a.filter(r=>r.finishedAt>=Date.now()/1000-Number(days)*86400);if($('map').value!=='all')a=a.filter(r=>r.map===$('map').value);if($('result').value!=='all')a=a.filter(r=>r.won===($('result').value==='win'));return $('limit').value==='all'?a:a.slice(0,Number($('limit').value));}
+function selected(ignoreMap=false){if(!data)return [];let a=[...data.matches].sort((a,b)=>b.finishedAt-a.finishedAt);const days=$('days').value;if(days!=='all')a=a.filter(r=>r.finishedAt>=Date.now()/1000-Number(days)*86400);if(!ignoreMap&&$('map').value!=='all')a=a.filter(r=>r.map===$('map').value);if($('result').value!=='all')a=a.filter(r=>r.won===($('result').value==='win'));return $('limit').value==='all'?a:a.slice(0,Number($('limit').value));}
 function metric(label,value,note){return `<article class="metric"><span class="label">${label}</span><strong>${value}</strong><small>${note}</small></article>`;}
 function advanced(label,value,note,count){return `<article><span class="label">${label}</span><strong>${value}</strong><p>${note}</p><small>Datadækning: ${count} / ${rows.length} maps</small></article>`;}
 function groupRow(s){return `<tr><td>${esc(s.label)}${s.count<10?' *':''}</td><td>${s.count}</td><td>${pct(s.winrate)}</td><td>${fmt(s.adr)}</td><td>${fmt(s.kd,2)}</td></tr>`;}
@@ -110,12 +112,22 @@ function ratingCells(r,ratings){
 function updateMapCard(){
  const buttons=[...$('maps').querySelectorAll('[data-map]')];
  const mapNames=buttons.map(button=>button.dataset.map);
- if(!mapNames.includes(focusedMap))focusedMap=mapNames[0]??null;
- $('mapCard').hidden=!focusedMap;
+ const picker=$('mapFocusMap');
+ const available=[...new Set([...Object.keys(ctPositions),...mapNames])].sort();
+ if(!available.includes(focusedMap))focusedMap=mapNames[0]??available[0];
+ if(picker.options.length!==available.length||available.some((map,i)=>picker.options[i]?.value!==map)){
+   picker.replaceChildren(...available.map(map=>new Option(map,map)));
+ }
+ picker.value=focusedMap;
+ $('mapCard').hidden=false;
+ $('mapCardHistory').hidden=![...$('map').options].some(option=>option.value===focusedMap);
  for(const button of buttons)button.setAttribute('aria-pressed',String(button.dataset.map===focusedMap));
- if(!focusedMap)return;
  $('mapCardTitle').textContent='Mapkort · '+focusedMap;
- renderMapCard({rows:rows.filter(row=>row.map===focusedMap),matches:leetifyMatches,state:leetifyState,metric,fmt,pct,date,esc});
+ const mapRows=rows.filter(row=>row.map===focusedMap);
+ const baseline=selected(true).filter(row=>row.map!==focusedMap);
+ const options={map:focusedMap,rows:mapRows,baseline,matches:leetifyMatches,state:leetifyState};
+ renderMapFocus(options);
+ renderMapCard({...options,metric,fmt,pct});
 }
 function render(){
  const ratings=rateHistory(data.matches,ratingReference);
@@ -206,6 +218,8 @@ window.addEventListener('hashchange',()=>setView(location.hash.slice(1),false));
 $('resetFilters').addEventListener('click',resetFilters);$('resetEmpty').addEventListener('click',resetFilters);
 for(const id of ['mapSort','mapMinimum'])$(id).addEventListener('change',()=>{if(data)render();});
 $('maps').addEventListener('click',event=>{const button=event.target.closest('[data-map]');if(button){focusedMap=button.dataset.map;updateMapCard();}});
+$('mapFocusMap').addEventListener('change',event=>{focusedMap=event.target.value;updateMapCard();});
+$('mapFocusPosition').addEventListener('change',updateMapCard);
 $('mapCardHistory').addEventListener('click',event=>{
  if(!focusedMap)return;
  event.preventDefault();
