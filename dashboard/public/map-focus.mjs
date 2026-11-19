@@ -36,7 +36,7 @@ const rules = [
       return {
         title:'Få utility i spil tidligere',
         evidence:`Gennemsnitligt ${decimal(a)} $ i ubrugt utility ved død mod ${decimal(b)} $ på dine andre maps ${limitNote(map,other)}`,
-        action:'Vælg før runden, hvad der skal udløse din første granat. Aftal med makkeren, hvem der gemmer sin til næste kontakt.',
+        action:'Har du en flash, så brug den fra dækning før dit første peek. På næste buy kan du tjekke, om du stadig køber granater, du sjældent får kastet.',
       };
     },
   },
@@ -61,12 +61,12 @@ const rules = [
       if(a.denominator<10||b.denominator<10)return;
       const evidence=`Du vinder ${decimal(a.value*100,1)} % af dine opening-dueller (${a.denominator} forsøg) mod ${decimal(b.value*100,1)} % på dine andre maps (${b.denominator} forsøg) ${limitNote(map,other)}`;
       if(mapRate-otherRate>=0.04&&b.value-a.value>=0.10)return {
-        title:'Tag første duel med en makker', evidence,
-        action:'Aftal hvem der følger din første duel, og vent på at makkeren er tæt nok på til at trade.',
+        title:'Gør din første duel lettere', evidence,
+        action:'Skær dit første peek smallere, så kun én vinkel er åben. Er der flere vinkler på dig, så træk ind og brug en flash før næste peek.',
       };
       if(a.value-b.value>=0.12)return {
         title:'Byg videre på dine openings', evidence,
-        action:'Aftal hvem der tager plads sammen med dig efter første kill, så holdet får noget ud af fordelen.',
+        action:'Efter dit første kill kan du tage den plads, modstanderen lige har givet op. Find dækning dér, før du søger næste duel.',
       };
     },
   },
@@ -91,16 +91,16 @@ function setSide(id,side){
 }
 
 const tFocus = {
-  nuke:'Aftal om første kontakt kommer fra Outside eller Lobby. Lad spilleren med første kontakt melde, før I deler jer mod Ramp og Upper.',
-  mirage:'Aftal hvem der tager første kontakt i Mid, og hvem der følger fra Underpass eller Top Mid, før I går frem.',
-  inferno:'Aftal hvem der tager første kontakt på Banana. Hold en afstand hvor den næste spiller kan trade uden at stå i samme granat.',
-  dust2:'På Long skal én tage første kontakt og én følge. Kald hvem der bliver ved hjørnet, når første spiller går frem.',
-  ancient:'Aftal om I tager første plads i Mid eller ved B Ramp. Send en makker med den første spiller, så I kan trade kontakten.',
-  anubis:'Fordel første kontakt i Mid og Water, og vent på hinandens melding, før I tager plads på hver sin side.',
-  cache:'Aftal hvem der tager første duel i Mid og hvem der følger. Meld når Z er dækket, før næste spiller krydser.',
-  overpass:'Aftal om I tager første kontakt ved Toilets eller Connector, og hvem der følger den spiller, der går først.',
-  train:'Aftal timingen mellem A Main og Ivy, så spilleren med første kontakt kan få hjælp fra den anden indgang.',
-  vertigo:'Gå to sammen frem på A Ramp. Aftal hvem der kalder stop, hvis den første spiller bliver bremset af utility.',
+  nuke:'Krydser du Outside mod Secret, så tjek samlingen mellem smokes fra Red. Et hul giver Garage frit udsyn til dit kryds.',
+  mirage:'På vej ud fra Top Mid kan du bruge kasserne til at lukke Window, mens du tjekker Connector. Tjek Short, før du går videre ud i Mid.',
+  inferno:'På vej op ad Banana kan du bruge en molotov til Sandbags. Hold Car, mens ilden breder sig, og tjek Sandbags igen, hvis ilden bliver slukket.',
+  dust2:'Stop inden den yderste Long Door, og lyt efter CT-utility. Brug en flash over dørene, før du går bredt ud mod Long Corner.',
+  ancient:'Når du går ud fra A Main, så brug kanten af åbningen til at tjekke de nære vinkler først. Gå et skridt videre, når du er klar til at møde Donut.',
+  anubis:'Fra Water kan du høre rotation gennem B Connector. Tjek den nære dørkarm, før du flytter sigtet længere ind mod B.',
+  cache:'På vej ud fra Garage skal du tjekke White Box, før du løber mod Vent. Hold dig ved kanten af Garage, mens Z stadig er åben.',
+  overpass:'Når du tager Toilets fra Fountain, så ryd én døråbning ad gangen. Stop ved den sidste væg, før du viser dig for A-site.',
+  train:'Fra Ivy kan du bruge dørkarmen til at skære vinklerne mellem togene én ad gangen. Stop ved første åbne linje, før du går længere ud.',
+  vertigo:'På vej op ad A Ramp kan du kaste en molotov bag Sandbags fra dækning. Hold kanten af ilden, før du går videre mod site.',
 };
 
 export function renderMapFocus({map,rows,baseline,matches,state}){
@@ -117,21 +117,19 @@ export function renderMapFocus({map,rows,baseline,matches,state}){
   const difference = ratings.ct.average-ratings.t.average;
   const side = ratings.count>=5 && Math.abs(difference)>=0.02 ? difference<0?'CT':'T':null;
   $('mapFocusPriority').textContent=side ? `Prioritér ${side} i næste kamp. Din gennemsnitlige rating ligger ${decimal(Math.abs(difference)*100,2)} point lavere på den side.` : '';
-  $('mapFocusTAdvice').textContent=tFocus[mapKey(map)]??'Aftal hvem der tager første kontakt, og hvem der følger tæt nok til at trade eller tage plads sammen med dig.';
+  $('mapFocusTAdvice').textContent=tFocus[mapKey(map)]??'Vælg din første indgang, og ryd den nærmeste vinkel fra dækning før dit næste peek.';
   const positions = Object.hasOwn(ctPositions,mapKey(map)) ? ctPositions[mapKey(map)] : [];
   const picker=$('mapFocusPosition');
   const selected=picker.dataset.map===map?picker.value:'';
   if(picker.dataset.map!==map){
     picker.dataset.map=map;
     picker.replaceChildren(new Option('Vælg CT-position',''));
-    for(const [names] of positions){
-      for(const name of names.split('|'))picker.add(new Option(name,name));
-    }
+    for(const [name] of positions)picker.add(new Option(name,name));
     picker.value=selected;
   }
   $('mapFocusPositionLabel').hidden=!positions.length;
-  $('mapFocusCTAdvice').textContent=positions.find(([names])=>names.split('|').includes(selected))?.[1]
-    ?? 'Aftal hvem der tager første kontakt, hvor du falder hen ved pres, og hvem der dækker dit fald.';
+  $('mapFocusCTAdvice').textContent=positions.find(([name])=>name===selected)?.[1]
+    ?? (positions.length ? 'Vælg den position, du spiller, for at se dit CT-råd.' : 'Hold din første vinkel tæt på dækning, så du kan skifte position efter kontakt.');
 
   const comment = mapComment(current,entries(baseline));
   $('mapFocusComment').hidden=!comment;
